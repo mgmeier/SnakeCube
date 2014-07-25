@@ -1,11 +1,10 @@
 {-# OPTIONS_GHC                 -funbox-strict-fields #-}
 
 
-import  System.IO.Unsafe        (unsafePerformIO)                       -- for debug/progress output only
+import  Control.Monad           (msum)
 
 import  qualified Data.HashSet  as HS                                   -- Data.Set seems to perform worse here, almost doubling execution time
 import  Data.Hashable           (Hashable, hashWithSalt)
-import  Data.List               (foldl')
 
 
 
@@ -108,38 +107,28 @@ applyMove c (Move x y z) =
 
 
 
--- lukeSegmentWalker left folds over the list of segment lengths.
--- keeps track of valid paths to arrange the segments,
+-- each recursive step tries to extend the path with a given segemnt,
 -- throwing away crossing paths or the ones leaving the cube area.
-lukeSegmentWalker :: Int -> [Path] -> Int -> [Path]
-lukeSegmentWalker edgeLen paths segLen =
-    {- progressOutput `seq` -} concatMap forkPaths paths                -- UNCOMMENT FOR STATUS UPDATES DURING CALCULATION
-  
+-- when a path can't be extended further, the recursion branch is pruned.
+solveRecursive :: Int -> [Int] -> Path -> Maybe Path
+solveRecursive edgeLen =
+    recurse
   where
-    forkPaths (Path coords c path@(m:_)) =
-        [Path (HS.fromList newC `HS.union` coords) (last newC) (move:path)
-            | move <- moveChoices m segLen
-            , let newC = applyMove c move
-            , all isInsideCube newC                                     -- don't leave cube area
-            , all (not . flip HS.member coords) newC                    -- don't overlap with occupied coordinates
-            ]
+    recurse [] path = Just path                                         -- no segments left? found solution
+    recurse (s:segs) (Path coords c path@(m:_)) =
+        msum . (Nothing:) . map (recurse segs) $
+            [Path (HS.fromList newC `HS.union` coords) (last newC) (move:path)
+                | move <- moveChoices m s
+                , let newC = applyMove c move
+                , all isInsideCube newC                                 -- don't leave cube area
+                , all (not . flip HS.member coords) newC                -- don't overlap with occupied coordinates
+                ]
 
     isInsideCube (Coord x y z) =
         isInsideCube' x && isInsideCube' y && isInsideCube' z
       where
         {-# INLINE isInsideCube' #-}
         isInsideCube' c = c > 0 && c <= edgeLen
-
-{-
-    progressOutput = unsafePerformIO $ putStrLn $                       -- UNCOMMENT FOR STATUS UPDATES DURING CALCULATION
-        "berechne Segment: " ++ show segLen
-        ++ "   belegte Koordinaten: " ++ show occupiedCoos
-        ++ "   aktuell mögliche Pfade: " ++ show (length paths)
-      where
-        occupiedCoos = case paths of
-            []              -> 0
-            (Path cs _ _):_ -> HS.size cs
--}
 
 
 
@@ -161,23 +150,21 @@ solveSnakeCube edgeLen seg_ = do
             | otherwise =
                 ""                                                      -- ok!
 
-        startMove = Move 0 0 seg
-        startCoos = applyMove (Coord 1 1 0) startMove
-        startPath = Path (HS.fromList startCoos) (last startCoos) [startMove]       
-        goodPaths = foldl' (lukeSegmentWalker edgeLen) [startPath] segs
+        startMove   = Move 0 0 seg
+        startCoos   = applyMove (Coord 1 1 0) startMove
+        startPath   = Path (HS.fromList startCoos) (last startCoos) [startMove]       
+        solution    = solveRecursive edgeLen segs startPath
 
     putStrLn $ if null insaneCube
-        then case goodPaths of
-            []      ->                                                  -- no solution for given segments
-                "Diese Segmente lassen sich nicht \
-                \ zu einem Würfel falten."
-            sol:_   ->                                                  -- there will always be min. 2 solutions because of symmetry, we discard all but one
-                intro ++ (prettyPrint . movesFromPath) sol
+        then maybe noSolution ((intro ++) . prettyPrintMoves) solution
         else insaneCube
 
     where
         segments@(seg:segs) =
             head seg_ : map (subtract 1) (tail seg_)                    -- to avoid double-counting cubelets
+
+        noSolution =
+            "Diese Segmente lassen sich nicht zu einem Würfel falten."
 
         intro =
             "\nNimm die Würfelschlange von dem Ende her, so dass sie \
@@ -187,11 +174,8 @@ solveSnakeCube edgeLen seg_ = do
             \zeigt. Dann drehst du die Segmente\naus *deiner* \
             \Sicht einfach der Reihe nach wie folgt angegeben:\n"
 
-        movesFromPath (Path _ _ ms) =
-            reverse ms
-
-        prettyPrint (_:moves) =                                         -- first Move already described in intro
-            let indexed = zip [1..] moves
+        prettyPrintMoves (Path _ _ ms) =                                         
+            let indexed = zip [1..] (tail . reverse $ ms)               -- first Move already described in intro
             in unlines $ 
                 map (\(i, m) -> show i ++ ". --> " ++ show m) indexed 
 

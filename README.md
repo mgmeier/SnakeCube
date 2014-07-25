@@ -37,7 +37,7 @@ Don't worry thou, code is commented, nothing is left unclear.
 
 This version is optimized a little for speed by using a hashset data
 structure and unboxed data types for integer arithmetic (execution time
-for 4x4x4 cube is ~13s on my machine). Also, now a solvable version of
+for 4x4x4 cube is ~12s on my machine). Also, now a solvable version of
 a 4x4x4 cube is included. 
 See comments in the program text if you want to know more.
 
