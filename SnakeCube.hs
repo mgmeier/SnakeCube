@@ -5,38 +5,32 @@ import  System.IO.Unsafe        (unsafePerformIO)                       -- for d
 
 import  qualified Data.HashSet  as HS                                   -- Data.Set seems to perform worse here, almost doubling execution time
 import  Data.Hashable           (Hashable, hashWithSalt)
-
+import  Data.List               (foldl')
 
 
 
 -- some data representing the cubelet count of the segments of a snake cube.
--- NB. any cubelet must be counted only once in total. that's also why
--- there are segments of length 1: their actual langth is two, but one
--- cubelet already counted for the segment beforehand. so if you want
--- to write down the segments' absolute length, you should
--- map (subtract 1)
--- to the tail of your list.
+-- compare cubeSegments3 with image in README.md to see how the
+-- segments were encoded, left to right.
 
 
 -- snake cube with edge length 2 - the hardest one !1!!
 cubeLength2     = 2
-cubeSegments2   = [2, 1, 1, 1, 1, 1, 1]
+cubeSegments2   = [2, 2, 2, 2, 2, 2, 2]
 
 
 -- snake cube with edge length 3
--- (compare with image in README.md to see how the segments were encoded)
-cubeLength3         = 3
-cubeSegments3LtoR   = [3, 1, 1, 2, 1, 2, 1, 1, 2, 2, 1, 1, 1, 2, 2, 2, 2]
-cubeSegmentsR3toL   = [3, 2, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 1, 2, 1, 1, 2]
+cubeLength3     = 3
+cubeSegments3   = [3, 2, 2, 3, 2, 3, 2, 2, 3, 3, 2, 2, 2, 3, 3, 3, 3]
 
 
 -- snake cube with edge length 4
 cubeLength4     = 4
-cubeSegments4   =                                                       -- TODO: can't currently be solved... see README.md for details
-    [ 4, 1, 3, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1
-    , 2, 1, 3, 1, 2, 2, 3, 1, 2, 1, 1, 1, 1
-    , 1, 1, 1, 1, 1, 3, 1, 3, 1, 3, 3, 3, 2
-    ]
+cubeSegments4   =
+    [ 3, 2, 3, 2, 2, 4, 2, 3, 2, 3, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 3
+    , 3, 2, 2, 2, 2, 2, 3, 4, 2, 2, 2, 4, 2, 3, 2, 2, 2, 2, 2, 2, 2
+    , 2, 2, 4, 2]
+
 
 
 
@@ -53,7 +47,7 @@ data Coord  = Coord !Int !Int !Int  deriving Eq
 -- of Moves leading to that coordinate.
 -- NB. the moves are in reverse order, meaning the "opening" Move
 -- (the one starting from (0,0,0)) is last in list.
-data Path  = Path  !(HS.HashSet Coord) !Coord [Move]
+data Path  = Path  (HS.HashSet Coord) Coord [Move]
 
 
 
@@ -62,17 +56,6 @@ instance Hashable Coord where
         salt    `hashWithSalt` x
                 `hashWithSalt` y
                 `hashWithSalt` z
-
-
-instance Show Coord where                                               -- for debug output, currently not needed
-    show (Coord x y z) =
-        concat ["(", show x, ",", show y, ",", show z, ")"]
-
-
-instance Show Path where                                                -- for debug output, currently not needed
-    show (Path cs c _) = 
-        "path ending in " ++ show c ++
-        " occupies " ++ show cs
 
 
 -- a custom Show instance which directly translates a Move vector
@@ -134,12 +117,11 @@ lukeSegmentWalker edgeLen paths segLen =
   
   where
     forkPaths (Path coords c path@(m:_)) =
-        [Path (coords' `HS.union` coords) (last newC) (move:path)
+        [Path (HS.fromList newC `HS.union` coords) (last newC) (move:path)
             | move <- moveChoices m segLen
             , let newC = applyMove c move
             , all isInsideCube newC                                     -- don't leave cube area
-            , let coords' = HS.fromList newC
-            , HS.null (coords' `HS.intersection` coords)                -- don't overlap with occupied coordinates
+            , all (not . flip HS.member coords) newC                    -- don't overlap with occupied coordinates
             ]
 
     isInsideCube (Coord x y z) =
@@ -148,7 +130,8 @@ lukeSegmentWalker edgeLen paths segLen =
         {-# INLINE isInsideCube' #-}
         isInsideCube' c = c > 0 && c <= edgeLen
 
-    progressOutput = unsafePerformIO $ putStrLn $
+{-
+    progressOutput = unsafePerformIO $ putStrLn $                       -- UNCOMMENT FOR STATUS UPDATES DURING CALCULATION
         "berechne Segment: " ++ show segLen
         ++ "   belegte Koordinaten: " ++ show occupiedCoos
         ++ "   aktuell mögliche Pfade: " ++ show (length paths)
@@ -156,21 +139,22 @@ lukeSegmentWalker edgeLen paths segLen =
         occupiedCoos = case paths of
             []              -> 0
             (Path cs _ _):_ -> HS.size cs
+-}
 
 
 
 -- this function produces epic win!
 solveSnakeCube :: Int -> [Int] -> IO ()
-solveSnakeCube edgeLen segments@(seg:segs) = do
+solveSnakeCube edgeLen seg_ = do
     putStrLn $
         "Würfel mit Kantenlänge " ++ show edgeLen
-        ++ " und den Segmenten:\n" ++ show (seg:map (+1) segs)
+        ++ " und den Segmenten:\n" ++ show seg_
         ++ "\nBerechne... "
         ++ "(kann bei einem 4x4x4 Würfel auch mal über 1 min dauern)"
 
     let 
         insaneCube
-            | any (\i -> i < 1 || i > edgeLen) segments =
+            | any (\i -> i < 1 || i > edgeLen) seg_ =
                 "Ein Segment hat hier wohl die falsche Länge!"          -- ill-sized segments found
             | sum segments /= edgeLen^3 =
                 "Segmentlängen ergeben keinen Würfel!"                  -- wrong length of snake
@@ -180,7 +164,7 @@ solveSnakeCube edgeLen segments@(seg:segs) = do
         startMove = Move 0 0 seg
         startCoos = applyMove (Coord 1 1 0) startMove
         startPath = Path (HS.fromList startCoos) (last startCoos) [startMove]       
-        goodPaths = foldl (lukeSegmentWalker edgeLen) [startPath] segs
+        goodPaths = foldl' (lukeSegmentWalker edgeLen) [startPath] segs
 
     putStrLn $ if null insaneCube
         then case goodPaths of
@@ -188,10 +172,13 @@ solveSnakeCube edgeLen segments@(seg:segs) = do
                 "Diese Segmente lassen sich nicht \
                 \ zu einem Würfel falten."
             sol:_   ->                                                  -- there will always be min. 2 solutions because of symmetry, we discard all but one
-                intro ++ (prettyPrint . movesfromPath) sol
+                intro ++ (prettyPrint . movesFromPath) sol
         else insaneCube
 
     where
+        segments@(seg:segs) =
+            head seg_ : map (subtract 1) (tail seg_)                    -- to avoid double-counting cubelets
+
         intro =
             "\nNimm die Würfelschlange von dem Ende her, so dass sie \
             \der obigen Liste entspricht.\nDas erste Segment hat die \
@@ -200,7 +187,7 @@ solveSnakeCube edgeLen segments@(seg:segs) = do
             \zeigt. Dann drehst du die Segmente\naus *deiner* \
             \Sicht einfach der Reihe nach wie folgt angegeben:\n"
 
-        movesfromPath (Path _ _ ms) =
+        movesFromPath (Path _ _ ms) =
             reverse ms
 
         prettyPrint (_:moves) =                                         -- first Move already described in intro
@@ -210,13 +197,8 @@ solveSnakeCube edgeLen segments@(seg:segs) = do
 
 
 
---
---  MAIN
---
-
 main :: IO ()
 main =                                                                  -- UNCOMMENT WHICHEVER TASK YOU'D LIKE
     -- solveSnakeCube cubeLength2 cubeSegments2
-    solveSnakeCube cubeLength3 cubeSegments3LtoR
-    -- solveSnakeCube cubeLength3 cubeSegmentsR3toL
-    -- solveSnakeCube cubeLength4 cubeSegments4
+    -- solveSnakeCube cubeLength3 cubeSegments3
+    solveSnakeCube cubeLength4 cubeSegments4

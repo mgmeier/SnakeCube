@@ -9,8 +9,8 @@ The cubelets can rotate freely. The aim of the puzzle is to arrange
 the chain in such a way that they will form 3x3x3 or 4x4x4 cube
 (cf. [Snake Cube on Wikipedia](http://en.wikipedia.org/wiki/Snake_cube)).
 
-This program finds a solution and translates it into instructions on
-how to apply it.
+This program finds a solution and translates it into natual language
+instructions on how to apply it.
 
 ![3x3x3 snake cube](snakecube3x3x3.png "Example of a 3x3x3 snake cube")
 
@@ -35,20 +35,11 @@ guess otherwise I would've won ;)
 That's also why the program's text output is in my native tongue German.
 Don't worry thou, code is commented, nothing is left unclear.
 
-This version is optimized for speed by using a hashset data structure and
-unboxed data types for integer arithmetic. See comments in the program
-text if you want to know more.
+This version is optimized a little for speed by using a hashset data
+structure and unboxed data types for integer arithmetic (execution time
+for 4x4x4 cube is ~13s on my machine). Also, now a solvable version of
+a 4x4x4 cube is included. 
+See comments in the program text if you want to know more.
 
 I release it to anyone who has a puzzle like that sitting on their shelf
 and keep having it in a state of disorder after ppl visit :)
-
-
-
-
-Known issues
-------------
-
-I didn't write down the correct segments for a 4x4x4 yet and currently can't,
-as my friend lives quite far away (3x3x3 cube is solved just fine BTW). So if
-anyone has a snake cube puzzle around and could count the segments, a
-pull request is very welcome.
