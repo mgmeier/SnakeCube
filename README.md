@@ -7,7 +7,7 @@ The snake cube is a mechanical puzzle, a chain of 27 or 64 cubelets,
 connected by an elastic band running through them.
 The cubelets can rotate freely. The aim of the puzzle is to arrange
 the chain in such a way that they will form 3x3x3 or 4x4x4 cube
-(cf. [Snake Cube on Wikipedia](http://http://en.wikipedia.org/wiki/Snake_cube)).
+(cf. [Snake Cube on Wikipedia](http://en.wikipedia.org/wiki/Snake_cube)).
 
 This program finds a solution and translates it into instructions on
 how to apply it.
