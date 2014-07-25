@@ -1,10 +1,11 @@
-{-# OPTIONS_GHC                 -funbox-strict-fields #-}
+{-# OPTIONS_GHC                         -funbox-strict-fields #-}
 
 
-import  Control.Monad           (msum)
+import  Control.Parallel.Strategies
+import  Control.Monad                   (msum)
 
-import  qualified Data.HashSet  as HS                                   -- Data.Set seems to perform worse here, almost doubling execution time
-import  Data.Hashable           (Hashable, hashWithSalt)
+import  qualified Data.HashSet          as HS                           -- Data.Set tested; seemed to perform worse here
+import  Data.Hashable                   (Hashable, hashWithSalt)
 
 
 
@@ -116,7 +117,7 @@ solveRecursive edgeLen =
   where
     recurse [] path = Just path                                         -- no segments left? found solution
     recurse (s:segs) (Path coords c path@(m:_)) =
-        msum . (Nothing:) . map (recurse segs) $
+        msum . (Nothing:) . parMap rpar (recurse segs) $
             [Path (HS.fromList newC `HS.union` coords) (last newC) (move:path)
                 | move <- moveChoices m s
                 , let newC = applyMove c move
@@ -139,7 +140,7 @@ solveSnakeCube edgeLen seg_ = do
         "Würfel mit Kantenlänge " ++ show edgeLen
         ++ " und den Segmenten:\n" ++ show seg_
         ++ "\nBerechne... "
-        ++ "(kann bei einem 4x4x4 Würfel auch mal über 1 min dauern)"
+        ++ "(kann bei einem 4x4x4 Würfel auch u.U. 1 min dauern)"
 
     let 
         insaneCube

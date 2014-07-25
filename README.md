@@ -9,7 +9,7 @@ The cubelets can rotate freely. The aim of the puzzle is to arrange
 the chain in such a way that they will form 3x3x3 or 4x4x4 cube
 (cf. [Snake Cube on Wikipedia](http://en.wikipedia.org/wiki/Snake_cube)).
 
-This program finds a solution and translates it into natual language
+This program finds a solution and translates it into natural language
 instructions on how to apply it.
 
 ![3x3x3 snake cube](snakecube3x3x3.png "Example of a 3x3x3 snake cube")
@@ -37,7 +37,7 @@ Don't worry thou, code is commented, nothing is left unclear.
 
 This version is optimized a little for speed by using a hashset data
 structure and unboxed data types for integer arithmetic (execution time
-for 4x4x4 cube is ~12s on my machine). Also, now a solvable version of
+for 4x4x4 cube is ~7s on my machine). Also, now a solvable version of
 a 4x4x4 cube is included. 
 See comments in the program text if you want to know more.
 

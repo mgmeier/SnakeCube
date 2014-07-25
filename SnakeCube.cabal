@@ -15,11 +15,15 @@ executable SnakeCube
   main-is:              SnakeCube.hs
  
   ghc-options:          -O2 -funbox-strict-fields
-  -- compiling with -O2 vs. -O0 quadruples the speed of the executable
-  -- for a 4x4x4 cube on my machine, so using that flag is highly advised
+                        -threaded -with-rtsopts=-N
+
+  -- compiling with -O0 vs. -O2 greatly decreases the speed of the executable
+  -- for a 4x4x4 cube on my machine, so using that flag is highly advised;
+  -- also, parallelism adds some notable performance boost.
 
  
   build-depends:        base                    >=4.7   && <4.8,
+                        parallel                >=3.2   && <4,
                         unordered-containers    >=0.2.4 && <0.3,
                         hashable                >=1.2   && <1.3
 
