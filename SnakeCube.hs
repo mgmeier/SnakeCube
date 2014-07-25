@@ -1,11 +1,5 @@
 {-# OPTIONS_GHC                 -funbox-strict-fields #-}
 
---
--- cf. http://en.wikipedia.org/wiki/Snake_cube
---
--- compiling with -O2 vs. -O0 quadruples the speed of the executable
--- for a 4x4x4 cube on my machine, so using that flag is highly advised
-
 
 import  System.IO.Unsafe        (unsafePerformIO)                       -- for debug/progress output only
 
@@ -14,11 +8,14 @@ import  Data.Hashable           (Hashable, hashWithSalt)
 
 
 
---    Eine Liste der Längen aller aufeinanderfolgenden Würfel-Segmente.
---    /WICHTIG:/ die Einzel-Würfel der Segmente dürfen nicht doppelt gezählt
---    werden! Sie müssen immer nur einem Segment zugeordnet werden,
---    und zwar werden die Einzelwürfel solange aufsummiert, bis es nicht
---   mehr geradeaus weitergeht.
+
+-- some data representing the cubelet count of the segments of a snake cube.
+-- NB. any cubelet must be counted only once in total. that's also why
+-- there are segments of length 1: their actual langth is two, but one
+-- cubelet already counted for the segment beforehand. so if you want
+-- to write down the segments' absolute length, you should
+-- map (subtract 1)
+-- to the tail of your list.
 
 
 -- snake cube with edge length 2 - the hardest one !1!!
@@ -34,13 +31,12 @@ cubeSegmentsR3toL   = [3, 2, 2, 2, 1, 1, 1, 2, 2, 1, 1, 2, 1, 2, 1, 1, 2]
 
 
 -- snake cube with edge length 4
--- TODO: when entering the segment lengths, it seems I made a mistake
---        somewhere... can't currently be solved... ;_;
 cubeLength4     = 4
-cubeSegments4   =
-    [4, 1, 3, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1,
-    2, 1, 3, 1, 2, 2, 3, 1, 2, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 3, 1, 3, 1, 3, 3, 3, 2]
+cubeSegments4   =                                                       -- TODO: can't currently be solved... see README.md for details
+    [ 4, 1, 3, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1
+    , 2, 1, 3, 1, 2, 2, 3, 1, 2, 1, 1, 1, 1
+    , 1, 1, 1, 1, 1, 3, 1, 3, 1, 3, 3, 3, 2
+    ]
 
 
 
@@ -92,9 +88,9 @@ instance Show Move where
 
 
 -- depending upon the last applied Move and the length of the
--- current segment, a list of applicable Move vectors is generated.
--- E.g. if the last move was along the y-axis, the following
--- Move would be along the x- or z-axis.
+-- current segment, a list of follow-up Move vectors is generated.
+-- e.g. if the last Move was along the y-axis, the following one
+-- had to be along the x- or z-axis.
 moveChoices :: Move -> Int -> [Move]
 moveChoices (Move x y z) seg
     | x /= 0    = yAxis ++ zAxis
@@ -108,10 +104,8 @@ moveChoices (Move x y z) seg
     zAxis   = [Move 0 0 seg, Move 0 0 (-seg)]
 
 
--- wendet einen Move auf eine Koordinate an und
--- gibt die Liste der vom Move abgeschrittenen Koordinaten
--- zurück (exclusive der Ausgangskoordinate).
--- /NB:/ die Endkoordinate des Moves die letzte der Liste
+
+-- generates a list of coordinates occupied by some move
 applyMove :: Coord -> Move -> [Coord]
 applyMove c (Move x y z) = 
     let
@@ -131,9 +125,9 @@ applyMove c (Move x y z) =
 
 
 
--- lukeSegmentWalker folds over the list of segment lengths.
+-- lukeSegmentWalker left folds over the list of segment lengths.
 -- keeps track of valid paths to arrange the segments,
--- throwing away crossing paths or the one's leaving the cube area.
+-- throwing away crossing paths or the ones leaving the cube area.
 lukeSegmentWalker :: Int -> [Path] -> Int -> [Path]
 lukeSegmentWalker edgeLen paths segLen =
     {- progressOutput `seq` -} concatMap forkPaths paths                -- UNCOMMENT FOR STATUS UPDATES DURING CALCULATION
@@ -170,9 +164,9 @@ solveSnakeCube :: Int -> [Int] -> IO ()
 solveSnakeCube edgeLen segments@(seg:segs) = do
     putStrLn $
         "Würfel mit Kantenlänge " ++ show edgeLen
-        ++ " und den Segmenten:\n" ++ show segments
+        ++ " und den Segmenten:\n" ++ show (seg:map (+1) segs)
         ++ "\nBerechne... "
-        ++ "(kann bei einem 4x4x4 Würfel ca. 1-2 Minuten dauern)"
+        ++ "(kann bei einem 4x4x4 Würfel auch mal über 1 min dauern)"
 
     let 
         insaneCube
@@ -198,11 +192,13 @@ solveSnakeCube edgeLen segments@(seg:segs) = do
         else insaneCube
 
     where
-        intro = "Das erste Segment hat die Länge " 
-            ++ show seg ++ ". Leg es so vor dich\
-            \ auf den Tisch,\ndass es von dir weg, \"nach hinten\",\
-            \ zeigt. Dann drehst du die Segmente\naus *deiner*\
-            \ Sicht einfach der Reihe nach wie folgt angegeben:\n"
+        intro =
+            "\nNimm die Würfelschlange von dem Ende her, so dass sie \
+            \der obigen Liste entspricht.\nDas erste Segment hat die \
+            \Länge " ++ show seg ++ ". Leg es so vor dich \
+            \auf den Tisch,\ndass es von dir weg, \"nach hinten\", \
+            \zeigt. Dann drehst du die Segmente\naus *deiner* \
+            \Sicht einfach der Reihe nach wie folgt angegeben:\n"
 
         movesfromPath (Path _ _ ms) =
             reverse ms
